@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<!--
+  SILENT DUEL のブラウザ版のページ（Unity の Web ビルドのテンプレート。RokuhatsuBuild.WebTemplate）。
+  画面はブラウザの窓いっぱい。全画面は右上のボタン（ポインタがロックされていない間だけ出す）か、ブラウザの F11 など。
+  ポインタのロック・一時停止・全画面の決まりは docs/design.md の「ブラウザ版」。
+-->
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SILENT DUEL（静寂の決闘）</title>
+    <link rel="icon" href="data:,">
+    <style>
+      html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; color: #d1d1d1;
+        font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Meiryo", "Noto Sans JP", sans-serif; }
+      #unity-container { position: fixed; inset: 0; background: #000; }
+      #unity-canvas { display: block; width: 100%; height: 100%; background: #000; outline: none; }
+      #loading { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+        background: #000; text-align: center; }
+      #loading h1 { margin: 0; font-size: 56px; font-weight: 300; letter-spacing: 0.08em; color: #d1d1d1; }
+      #loading .sub { font-size: 18px; color: #808080; }
+      #progress { width: 320px; height: 2px; background: #222; margin-top: 18px; }
+      #progress-full { width: 0; height: 100%; background: #d1d1d1; }
+      #status { font-size: 15px; color: #808080; min-height: 1.4em; }
+      #status.error { color: #e69a8c; white-space: pre-wrap; max-width: 80vw; }
+      #fullscreen { position: absolute; top: 14px; right: 16px; padding: 6px 14px; font: inherit; font-size: 14px; color: #bdbdbd;
+        background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.35); cursor: pointer; display: none; }
+      #fullscreen:hover { color: #fff; background: rgba(255, 255, 255, 0.14); }
+    </style>
+  </head>
+  <body>
+    <div id="unity-container">
+      <canvas id="unity-canvas" width="960" height="600" tabindex="-1"></canvas>
+      <div id="loading">
+        <h1>SILENT DUEL</h1>
+        <div class="sub">静寂の決闘　―　ヘッドホン推奨・キーボードとマウスで遊ぶ</div>
+        <div id="progress"><div id="progress-full"></div></div>
+        <div id="status">読み込み中…</div>
+      </div>
+      <button id="fullscreen" type="button" title="全画面にする（Esc で戻る）">全画面</button>
+    </div>
+    <script>
+      var container = document.querySelector("#unity-container");
+      var canvas = document.querySelector("#unity-canvas");
+      var loading = document.querySelector("#loading");
+      var progressFull = document.querySelector("#progress-full");
+      var statusText = document.querySelector("#status");
+      var fullscreenButton = document.querySelector("#fullscreen");
+      var loaded = false;
+
+      function showError(message) {
+        loading.style.display = "flex";
+        statusText.className = "error";
+        statusText.textContent = "起動できませんでした。\n" + message;
+      }
+
+      // 右クリックはエコーロケーションなので、ブラウザのメニューを出さない
+      canvas.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+
+      // 全画面のボタンは、ポインタがロックされておらず全画面でもない間だけ出す（試合中は画面に何も重ねない）
+      function updateFullscreenButton() {
+        var show = loaded && !document.pointerLockElement && !document.fullscreenElement && !document.webkitFullscreenElement;
+        fullscreenButton.style.display = show ? "block" : "none";
+      }
+      document.addEventListener("pointerlockchange", updateFullscreenButton);
+      document.addEventListener("fullscreenchange", updateFullscreenButton);
+      document.addEventListener("webkitfullscreenchange", updateFullscreenButton);
+
+      var buildUrl = "Build";
+      var config = {
+        arguments: [],
+        dataUrl: buildUrl + "/web.data.unityweb",
+        frameworkUrl: buildUrl + "/web.framework.js.unityweb",
+        codeUrl: buildUrl + "/web.wasm.unityweb",
+        streamingAssetsUrl: "StreamingAssets",
+        fullscreenElementID: "unity-container",
+        companyName: "fujiharu07",
+        productName: "SILENT DUEL",
+        productVersion: "0.1.0",
+        showBanner: function (message, type) {
+          if (type === "error") showError(message);
+          else console.warn(message);
+        },
+      };
+
+      var script = document.createElement("script");
+      script.src = buildUrl + "/web.loader.js";
+      script.onerror = function () { showError("ゲームのファイルを読み込めませんでした。"); };
+      script.onload = function () {
+        createUnityInstance(canvas, config, function (progress) {
+          progressFull.style.width = (100 * progress) + "%";
+          statusText.textContent = "読み込み中… " + Math.round(100 * progress) + "%";
+        }).then(function (unityInstance) {
+          loaded = true;
+          loading.style.display = "none";
+          canvas.focus();
+          fullscreenButton.onclick = function () { unityInstance.SetFullscreen(1); };
+          updateFullscreenButton();
+        }).catch(function (message) {
+          showError(String(message));
+        });
+      };
+      document.body.appendChild(script);
+    </script>
+  </body>
+</html>
